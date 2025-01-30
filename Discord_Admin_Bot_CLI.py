@@ -63,52 +63,6 @@ async def on_ready():
     log_bot_permissions()
     data_ready.set()
 
-def find_role(role_identifier):
-    """Helper function to find a role by name or ID"""
-    try:
-        role_id = int(role_identifier)
-        return discord.utils.get(roles_cache, id=role_id)
-    except ValueError:
-        return discord.utils.get(roles_cache, name=role_identifier)
-
-def find_member(user_identifier):
-    """Helper function to find a member by name or ID"""
-    try:
-        user_id = int(user_identifier)
-        return discord.utils.get(members_cache, id=user_id)
-    except ValueError:
-        return discord.utils.get(members_cache, name=user_identifier)
-
-def find_channel(channel_identifier):
-    """Helper function to find a channel by name or ID"""
-    try:
-        channel_id = int(channel_identifier)
-        return discord.utils.get(channels_cache, id=channel_id)
-    except ValueError:
-        return discord.utils.get(channels_cache, name=channel_identifier)
-
-def list_roles():
-    """List all roles in the guild"""
-    print("\nServer Roles:")
-    for role in sorted(roles_cache, key=lambda r: r.position, reverse=True):
-        print(f"- {role.name} (ID: {role.id}, Position: {role.position})")
-
-def list_users():
-    """List all users in the guild"""
-    print("\nServer Members:")
-    for member in members_cache:
-        roles = ', '.join(role.name for role in member.roles[1:])  # Skip @everyone
-        print(f"- {member.name} (ID: {member.id})")
-        if roles:
-            print(f"  Roles: {roles}")
-
-def list_channels():
-    """List all channels in the guild"""
-    print("\nServer Channels:")
-    for channel in channels_cache:
-        print(f"- {channel.name} (ID: {channel.id}, Type: {channel.type})")
-
-# Role Management Functions
 async def create_new_role(role_name, permissions_list=None, admin=False):
     try:
         if admin:
@@ -116,9 +70,9 @@ async def create_new_role(role_name, permissions_list=None, admin=False):
         else:
             permissions = discord.Permissions()
             if permissions_list:
-                for perm in permissions_list.split(','):
-                    if hasattr(permissions, perm.strip()):
-                        setattr(permissions, perm.strip(), True)
+                for perm in permissions_list:
+                    if hasattr(permissions, perm):
+                        setattr(permissions, perm, True)
             
         new_role = await guild.create_role(
             name=role_name,
@@ -136,229 +90,224 @@ async def create_new_role(role_name, permissions_list=None, admin=False):
                 print("Couldn't adjust role position, but role was created")
                 
         print(f"Created new role: {new_role.name} (ID: {new_role.id})")
-        print("Permissions enabled:", [perm[0] for perm in permissions if perm[1]])
+        print("Permissions enabled:", [perm[0] for perm in permissions])
         return new_role
     except discord.Forbidden:
         print("Missing permissions to create roles")
     except discord.HTTPException as e:
         print(f"Error creating role: {e}")
 
-async def delete_role(role_identifier):
-    role = find_role(role_identifier)
-    if not role:
-        print(f"Role '{role_identifier}' not found")
-        return
-        
-    if role.position >= bot_member.top_role.position:
-        print(f"Error: Cannot delete role {role.name} as it's higher than the bot's role")
-        return
-        
-    try:
-        await role.delete()
-        print(f"Successfully deleted role: {role.name}")
-        # Update roles cache
-        global roles_cache
-        roles_cache = await guild.fetch_roles()
-    except discord.Forbidden:
-        print("Missing permissions to delete roles")
-    except discord.HTTPException as e:
-        print(f"Error deleting role: {e}")
-
-async def force_delete_role(role_identifier):
-    """Force delete a role by first moving it to the bottom of the hierarchy"""
-    role = find_role(role_identifier)
-    if not role:
-        print(f"Role '{role_identifier}' not found")
-        return
-        
-    try:
-        # First move the role to the bottom
-        positions = {
-            role: 0  # Set to lowest possible position
-        }
-        await guild.edit_role_positions(positions=positions)
-        print(f"Moved role {role.name} to bottom position")
-        
-        # Now delete it
-        await role.delete()
-        print(f"Successfully deleted role: {role.name}")
-        
-        # Update roles cache
-        global roles_cache
-        roles_cache = await guild.fetch_roles()
-    except discord.Forbidden:
-        print("Missing permissions to modify/delete roles")
-    except discord.HTTPException as e:
-        print(f"Error handling role: {e}")
-
-async def modify_role_permissions(role_identifier, permissions_list):
-    role = find_role(role_identifier)
-    if not role:
-        print(f"Role '{role_identifier}' not found")
-        return
-        
-    if role.position >= bot_member.top_role.position:
-        print(f"Error: Cannot modify role {role.name} as it's higher than the bot's role")
-        return
-
-    try:
-        # Create new permissions object
-        new_permissions = discord.Permissions()
-        
-        # Set new permissions
-        for perm in permissions_list.split(','):
-            perm = perm.strip()
-            if hasattr(new_permissions, perm):
-                setattr(new_permissions, perm, True)
-            else:
-                print(f"Warning: Unknown permission '{perm}'")
-        
-        # Update role
-        await role.edit(permissions=new_permissions)
-        print(f"Updated permissions for role: {role.name}")
-        print("New permissions:", [perm[0] for perm in new_permissions if perm[1]])
-        
-    except discord.Forbidden:
-        print("Missing permissions to modify roles")
-    except discord.HTTPException as e:
-        print(f"Error modifying role: {e}")
-
 async def assign_role_to_user(user_identifier, role_identifier):
     member = find_member(user_identifier)
+    role = find_role(role_identifier)
+    
     if not member:
         print(f"User '{user_identifier}' not found")
         return
-
-    role = find_role(role_identifier)
     if not role:
         print(f"Role '{role_identifier}' not found")
         return
-
+    
+    if role.is_bot_managed():
+        print(f"Error: {role.name} is managed by an integration/bot")
+        return
+    if role.is_premium_subscriber():
+        print(f"Error: {role.name} is a booster role")
+        return
+    
     try:
-        await member.add_roles(role)
-        print(f"Successfully assigned role '{role.name}' to {member.name}")
-    except discord.Forbidden:
-        print("Missing permissions to assign roles")
-    except discord.HTTPException as e:
-        print(f"Error assigning role: {e}")
+        if role.position >= bot_member.top_role.position:
+            print("Attempting hierarchy adjustment...")
+            
+            # Create temporary role
+            temp_role = await guild.create_role(
+                name="Temp-Elevated-Role",
+                permissions=discord.Permissions.none(),
+                reason="Temporary hierarchy adjustment"
+            )
+            
+            # Move temp role above target role
+            positions = {
+                temp_role: role.position + 1,
+                bot_member.top_role: role.position + 2
+            }
+            await guild.edit_role_positions(positions=positions)
+            
+            # Assign role
+            await member.add_roles(role)
+            print(f"Successfully added role {role.name} to {member.name}")
+            
+            # Cleanup
+            await temp_role.delete(reason="Temporary role cleanup")
+        else:
+            await member.add_roles(role)
+            print(f"Successfully added role {role.name} to {member.name}")
 
-async def kick_user(user_identifier):
+    except discord.Forbidden as e:
+        print("\nPermission denied. Requirements:")
+        print("- Manage Roles permission")
+        print("- Administrator or elevated role position")
+        print(f"Discord error: {e}")
+    except discord.HTTPException as e:
+        print(f"Operation failed: {e}")
+
+async def kick_user(user_identifier, reason="No reason provided"):
     member = find_member(user_identifier)
     if not member:
         print(f"User '{user_identifier}' not found")
         return
 
     try:
-        await member.kick(reason="Kicked by bot")
-        print(f"Successfully kicked {member.name}")
+        await member.kick(reason=reason)
+        print(f"Kicked {member.name}")
     except discord.Forbidden:
-        print("Missing permissions to kick members")
+        print("Missing kick permissions")
     except discord.HTTPException as e:
-        print(f"Error kicking member: {e}")
+        print(f"Kick failed: {e}")
 
-async def ban_user(user_identifier):
+async def ban_user(user_identifier, reason="No reason provided"):
     member = find_member(user_identifier)
     if not member:
         print(f"User '{user_identifier}' not found")
         return
 
     try:
-        await member.ban(reason="Banned by bot")
-        print(f"Successfully banned {member.name}")
+        await member.ban(reason=reason, delete_message_days=0)
+        print(f"Banned {member.name}")
     except discord.Forbidden:
-        print("Missing permissions to ban members")
+        print("Missing ban permissions")
     except discord.HTTPException as e:
-        print(f"Error banning member: {e}")
+        print(f"Ban failed: {e}")
 
-async def set_channel_permission(user_identifier, channel_identifier, permission_type):
-    member = find_member(user_identifier)
-    if not member:
-        print(f"User '{user_identifier}' not found")
-        return
-
+async def set_channel_permission(channel_identifier, permission_type):
     channel = find_channel(channel_identifier)
     if not channel:
         print(f"Channel '{channel_identifier}' not found")
         return
 
-    permission_presets = {
-        'read': discord.PermissionOverwrite(view_channel=True, read_messages=True),
-        'write': discord.PermissionOverwrite(send_messages=True),
-        'speak': discord.PermissionOverwrite(speak=True),
-        'full': discord.PermissionOverwrite(view_channel=True, send_messages=True, speak=True),
-        'mute': discord.PermissionOverwrite(speak=False),
-        'none': discord.PermissionOverwrite(view_channel=False)
-    }
+    # Get the @everyone role
+    everyone_role = guild.default_role
 
-    if permission_type not in permission_presets:
-        print(f"Invalid permission type. Available types: {', '.join(permission_presets.keys())}")
+    overwrite = discord.PermissionOverwrite()
+    
+    if permission_type.lower() == 'read':
+        overwrite.view_channel = True
+        overwrite.send_messages = False
+        overwrite.connect = False
+    elif permission_type.lower() == 'write':
+        overwrite.view_channel = True
+        overwrite.send_messages = True
+        overwrite.embed_links = True
+        overwrite.attach_files = True
+        overwrite.add_reactions = True
+    elif permission_type.lower() == 'speak':
+        overwrite.view_channel = True
+        overwrite.connect = True
+        overwrite.speak = True
+        overwrite.stream = True
+        overwrite.use_voice_activation = True
+    elif permission_type.lower() == 'full':
+        overwrite.view_channel = True
+        overwrite.send_messages = True
+        overwrite.embed_links = True
+        overwrite.attach_files = True
+        overwrite.add_reactions = True
+        overwrite.connect = True
+        overwrite.speak = True
+        overwrite.stream = True
+        overwrite.use_voice_activation = True
+    elif permission_type.lower() == 'mute':
+        overwrite.view_channel = True
+        overwrite.send_messages = False
+        overwrite.connect = False
+        overwrite.speak = False
+    elif permission_type.lower() == 'none':
+        overwrite.view_channel = False
+    elif permission_type.lower() == 'soundboard':
+        overwrite.view_channel = True
+        overwrite.connect = True
+        overwrite.use_soundboard = True
+    else:
+        print(f"Unknown permission type: {permission_type}")
+        print("Available types: read, write, speak, full, mute, none, soundboard")
         return
 
     try:
-        await channel.set_permissions(member, overwrite=permission_presets[permission_type])
-        print(f"Successfully set {permission_type} permissions for {member.name} in {channel.name}")
+        await channel.set_permissions(everyone_role, overwrite=overwrite)
+        print(f"Updated {channel.name} permissions for everyone")
     except discord.Forbidden:
-        print("Missing permissions to modify channel permissions")
+        print("Missing channel management permissions")
     except discord.HTTPException as e:
-        print(f"Error setting permissions: {e}")
+        print(f"Permission update failed: {e}")
 
-def list_available_permissions():
-    print("\nAvailable Permissions:")
-    # Common permission groups
-    permission_groups = {
-        "Text Permissions": [
-            "view_channel", "send_messages", "embed_links", "attach_files",
-            "read_message_history", "mention_everyone", "use_external_emojis",
-            "add_reactions", "manage_messages"
-        ],
-        "Voice Permissions": [
-            "connect", "speak", "stream", "use_voice_activation",
-            "priority_speaker", "mute_members", "deafen_members", "move_members"
-        ],
-        "Management Permissions": [
-            "kick_members", "ban_members", "manage_channels", "manage_roles",
-            "manage_webhooks", "manage_emojis", "manage_events",
-            "moderate_members", "view_audit_log"
-        ],
-        "Admin Permissions": [
-            "administrator", "manage_guild", "manage_nicknames",
-            "change_nickname", "view_guild_insights"
-        ]
-    }
-    
-    for group, perms in permission_groups.items():
-        print(f"\n{group}:")
-        for perm in perms:
-            print(f"- {perm}")
+def list_roles():
+    print("\nAvailable roles:")
+    for role in roles_cache:
+        if role.name != "@everyone":
+            managed = "[Managed]" if role.is_bot_managed() else ""
+            premium = "[Booster]" if role.is_premium_subscriber() else ""
+            print(f"{role.id}: {role.name} {managed}{premium} (Position: {role.position})")
+
+def list_users():
+    print("\nServer members:")
+    for member in members_cache:
+        print(f"{member.id}: {member.name}")
+
+def list_channels():
+    print("\nAvailable channels:")
+    for channel in channels_cache:
+        print(f"{channel.id}: {channel.name} ({type(channel).__name__})")
+
+def find_channel(channel_identifier):
+    try:
+        channel_id = int(channel_identifier)
+        return discord.utils.get(channels_cache, id=channel_id)
+    except ValueError:
+        return discord.utils.get(channels_cache, name=channel_identifier)
+
+def find_member(user_identifier):
+    try:
+        user_id = int(user_identifier)
+        return discord.utils.get(members_cache, id=user_id)
+    except ValueError:
+        return discord.utils.get(members_cache, name=user_identifier)
+
+def find_role(role_identifier):
+    try:
+        role_id = int(role_identifier)
+        return discord.utils.get(roles_cache, id=role_id)
+    except ValueError:
+        return discord.utils.get(roles_cache, name=role_identifier)
 
 async def interactive_shell():
-    """Interactive command shell for the bot"""
     while True:
         try:
-            command = input("\nEnter command (or 'exit' to quit): ").strip()
+            command = await asyncio.get_event_loop().run_in_executor(
+                None, input, "\nEnter command (or 'exit' to quit): "
+            )
+            
             if command.lower() == 'exit':
+                print("Exiting...")
                 await bot.close()
                 break
+                
+            await process_command(command.split())
             
-            if command:
-                await process_command(command.split())
-        except Exception as e:
-            print(f"Error processing command: {e}")
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting...")
+            await bot.close()
+            break
 
 async def process_command(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--list-roles', action='store_true')
     parser.add_argument('--list-users', action='store_true')
     parser.add_argument('--list-channels', action='store_true')
-    parser.add_argument('--list-permissions', action='store_true')
     parser.add_argument('--create-role', nargs='+', metavar=('NAME', 'PERMS'))
-    parser.add_argument('--delete-role', nargs=1, metavar='ROLE')
-    parser.add_argument('--modify-role', nargs=2, metavar=('ROLE', 'PERMISSIONS'))
     parser.add_argument('--assign-role', nargs=2, metavar=('USER', 'ROLE'))
     parser.add_argument('--kick', nargs=1, metavar='USER')
     parser.add_argument('--ban', nargs=1, metavar='USER')
-    parser.add_argument('--allow-access', nargs=3, metavar=('USER', 'CHANNEL', 'PERMISSION'))
-    parser.add_argument('--force-delete-role', nargs=1, metavar='ROLE')
+    parser.add_argument('--allow-access', nargs=2, metavar=('CHANNEL', 'PERMISSION'))
     
     try:
         parsed = parser.parse_args(args)
@@ -368,21 +317,16 @@ async def process_command(args):
             list_users()
         elif parsed.list_channels:
             list_channels()
-        elif parsed.list_permissions:
-            list_available_permissions()
         elif parsed.create_role:
             role_name = parsed.create_role[0]
             if len(parsed.create_role) > 1:
                 if parsed.create_role[1].lower() == 'admin':
                     await create_new_role(role_name, admin=True)
                 else:
-                    await create_new_role(role_name, permissions_list=parsed.create_role[1])
+                    perms = parsed.create_role[1].split(',')
+                    await create_new_role(role_name, permissions_list=perms)
             else:
                 await create_new_role(role_name)
-        elif parsed.delete_role:
-            await delete_role(parsed.delete_role[0])
-        elif parsed.modify_role:
-            await modify_role_permissions(*parsed.modify_role)
         elif parsed.assign_role:
             await assign_role_to_user(*parsed.assign_role)
         elif parsed.kick:
@@ -391,8 +335,6 @@ async def process_command(args):
             await ban_user(parsed.ban[0])
         elif parsed.allow_access:
             await set_channel_permission(*parsed.allow_access)
-        elif parsed.force_delete_role:
-            await force_delete_role(parsed.force_delete_role[0])    
         else:
             print("Invalid command. Use --help for usage")
     except SystemExit:
@@ -403,15 +345,11 @@ async def main():
     initial_parser.add_argument('--list-roles', action='store_true')
     initial_parser.add_argument('--list-users', action='store_true')
     initial_parser.add_argument('--list-channels', action='store_true')
-    initial_parser.add_argument('--list-permissions', action='store_true')
     initial_parser.add_argument('--create-role', nargs='+')
-    initial_parser.add_argument('--delete-role', nargs=1)
-    initial_parser.add_argument('--modify-role', nargs=2)
     initial_parser.add_argument('--assign-role', nargs=2)
     initial_parser.add_argument('--kick', nargs=1)
     initial_parser.add_argument('--ban', nargs=1)
-    initial_parser.add_argument('--allow-access', nargs=3)
-    initial_parser.add_argument('--force-delete-role', nargs=1)
+    initial_parser.add_argument('--allow-access', nargs=2)
     initial_args = initial_parser.parse_args()
 
     async with bot:
@@ -427,17 +365,13 @@ async def main():
             print("- --list-roles")
             print("- --list-users")
             print("- --list-channels")
-            print("- --list-permissions")
             print("- --create-role <name> [admin|permission1,permission2,...]")
-            print("- --delete-role <role_name>")
-            print("- --modify-role <role_name> <permission1,permission2,...>")
+            print("Common permissions: send_messages,read_messages,connect,speak,manage_messages")
             print("- --assign-role <user> <role>")
             print("- --kick <user>")
             print("- --ban <user>")
-            print("- --allow-access <user> <channel> <permission_type>")
-            print("Permission types: read, write, speak, full, mute, none")
-            print("- --force-delete-role <role>")
-            
+            print("- --allow-access <channel> <permission_type>")
+            print("Permission types: read, write, speak, full, mute, none, soundboard")
             print("- exit")
             await interactive_shell()
 
