@@ -1,147 +1,153 @@
-# Discord Role Management Bot
+# Discord Server Management Bot
 
-A command-line Discord bot for managing server roles, users, and permissions. This bot provides both interactive and command-line interfaces for comprehensive server management.
+A feature-rich Discord bot for server management with advanced role hierarchy handling and channel permissions control.
+
+![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
 ## Features
 
-- Role Management
-  - Create new roles with custom permissions
-  - Delete existing roles
-  - Modify role permissions
-  - Force-delete stuck roles
+- **Role Management**
+  - Create roles with custom permissions
+  - Assign roles with automatic hierarchy adjustment
+  - Bypass role position limits using temporary elevation
   - List all server roles
 
-- User Management
-  - Assign roles to users
-  - Kick users
-  - Ban users
-  - List all server members
+- **User Moderation**
+  - Kick/Ban members with audit logging
+  - Advanced permission checks before actions
 
-- Channel Management
-  - Set user permissions for specific channels
-  - List all server channels
-  - Configure read/write/speak permissions
+- **Channel Control**
+  - Set granular permissions for @everyone
+  - Enable soundboard functionality in voice channels
+  - Preconfigured permission templates (read/write/speak/full)
 
-## Prerequisites
-
-- Python 3.8 or higher
-- discord.py library
-- python-dotenv library
+- **Utility**
+  - List server members/channels
+  - Interactive command-line interface
+  - Permission debugging tools
 
 ## Installation
 
-1. Clone this repository:
-```bash
-git clone <repository-url>
-cd discord-role-bot
-```
+1. **Clone Repository**
 
-2. Install required packages:
-```bash
-pip install discord.py python-dotenv
-```
+git clone https://github.com/y0gi9/Discord_CLI_Admin_Bot.git
+cd Discord_CLI_Admin_Bot/
 
-3. Create a `.env` file in the project root with your Discord bot token and guild ID:
-```
+1.  **Install Dependencies**
+
+bash
+
+Copy
+
+pip install 
+
+1.  **Configure Environment**\
+    Create `.env` file:
+
+ini
+
+Copy
+
 DISCORD_TOKEN=your_bot_token_here
-GUILD_ID=your_guild_id_here
-```
+GUILD_ID=your_server_id_here
 
-## Usage
+1.  **Set Permissions**\
+    Ensure your bot has these permissions:
 
-### Starting the Bot
+-   Manage Roles
 
-Run in interactive mode:
-```bash
-python Discord_Admin_Bot_CLI.py
-```
+-   Kick Members
 
-Run with direct commands:
-```bash
-python Discord_Admin_Bot_CLI.py --command-name arguments
-```
+-   Ban Members
 
-### Available Commands
+-   Manage Channels
 
-- List Commands
-  - `--list-roles` - Show all server roles
-  - `--list-users` - Show all server members
-  - `--list-channels` - Show all server channels
-  - `--list-permissions` - Show available permission types
+-   Administrator (for hierarchy overrides)
 
-- Role Management
-  - `--create-role <name> [admin|permission1,permission2,...]` - Create a new role
-  - `--delete-role <role_name>` - Delete a role
-  - `--force-delete-role <role_name>` - Force delete a stuck role
-  - `--modify-role <role_name> <permission1,permission2,...>` - Modify role permissions
-  - `--assign-role <user> <role>` - Assign role to user
+Usage
+-----
 
-- User Management
-  - `--kick <user>` - Kick a user
-  - `--ban <user>` - Ban a user
+### Command-Line Interface
 
-- Channel Management
-  - `--allow-access <user> <channel> <permission_type>` - Set channel permissions
-    - Permission types: read, write, speak, full, mute, none
+# Create admin role
+python bot.py --create-role Admin admin
 
-### Examples
+# Assign role with hierarchy override
+python bot.py --assign-role 123456789 Admin
 
-Create an admin role:
-```bash
-python Discord_Admin_Bot_CLI.py --create-role "Admin Role" admin
-```
+# Enable soundboard in channel
+python bot.py --allow-access 987654321 soundboard
 
-Create a moderator role with specific permissions:
-```bash
-python Discord_Admin_Bot_CLI.py --create-role "Moderator" kick_members,ban_members,manage_messages
-```
+# Kick user
+python bot.py --kick 123456789
 
-Assign a role to a user:
-```bash
-python Discord_Admin_Bot_CLI.py --assign-role "Username" "Role Name"
-```
+# List roles
+python bot.py --list-roles
 
-Force delete a stuck role:
-```bash
-python Discord_Admin_Bot_CLI.py --force-delete-role "Role Name"
-```
+### Interactive Mode
 
-## Bot Permissions
+python bot.py
+> --create-role Moderator manage_messages,kick_members
+> --allow-access general-chat write
+> exit
 
-The bot requires the following permissions to function properly:
-- Administrator (recommended)
-OR these specific permissions:
-- Manage Roles
-- Manage Channels
-- Kick Members
-- Ban Members
-- View Channels
-- Send Messages
+Configuration
+-------------
 
-## Troubleshooting
+### Environment Variables
 
-1. Role Hierarchy Issues
-   - If you can't delete/modify roles, ensure the bot's role is positioned higher in the server settings
-   - Use `--force-delete-role` for stuck roles
+| Variable | Description |
+| --- | --- |
+| `DISCORD_TOKEN` | Bot token from Discord Developer Portal |
+| `GUILD_ID` | Target server ID (right-click server icon -> Copy ID) |
 
-2. Permission Errors
-   - Check the bot's permissions using the startup log
-   - Ensure the bot role has the necessary permissions
-   - Verify the bot's role position in the server hierarchy
+### Permission Types
 
-3. Command Not Found
-   - Make sure to use double dashes (--) before commands
-   - Check command spelling and required arguments
-   - Use quotes for names with spaces
+| Type | Description |
+| --- | --- |
+| `soundboard` | Enables voice channel soundboard |
+| `full` | Full text+voice permissions |
+| `mute` | Read-only access |
+| `none` | Complete denial |
 
-## Security Notes
+Permissions Management
+----------------------
 
-- Keep your `.env` file secure and never share your bot token
-- Carefully manage admin role creation and assignment
-- Regularly audit the bot's actions using Discord's audit log
-- Consider implementing additional permission checks for sensitive commands
+The bot handles role hierarchy automatically:
 
-## Contributing
+1.  Creates temporary elevated role
 
-Feel free to submit issues and enhancement requests!
+2.  Adjusts role positions
 
+3.  Performs operations
+
+4.  Cleans up temporary roles
+
+**Required Permissions:**
+
+-   Manage Roles
+
+-   Administrator (for hierarchy overrides)
+
+Troubleshooting
+---------------
+
+**Common Issues:**
+
+-   `Missing Permissions`: Ensure bot role is above target roles
+
+-   `Role Hierarchy`: Use `--list-roles` to check positions
+
+-   `Channel Not Found`: Use `--list-channels` to verify IDs
+
+-   `Temporary Role Limit`: Server must have <250 roles
+
+Disclaimer
+----------
+
+Use this bot responsibly. The developers are not responsible for misuse. Always comply with [Discord's Terms of Service](https://discord.com/terms).
+
+* * * * *
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/y0gi)
