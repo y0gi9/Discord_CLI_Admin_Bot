@@ -34,18 +34,18 @@ A feature-rich Discord bot for server management with advanced role hierarchy ha
 git clone https://github.com/y0gi9/Discord_CLI_Admin_Bot.git
 cd Discord_CLI_Admin_Bot/
 ```
-1.  **Install Dependencies**
+2.  **Install Dependencies**
 ```
 pip install 
 ```
-1.  **Configure Environment**\
+3.  **Configure Environment**
 
     Create `.env` file:
 ```
 DISCORD_TOKEN=your_bot_token_here
 GUILD_ID=your_server_id_here
 ```
-1.  **Set Permissions**\
+4.  **Set Permissions**
     Ensure your bot has these permissions:
 
 -   Manage Roles
@@ -61,30 +61,40 @@ GUILD_ID=your_server_id_here
 Usage
 -----
 
-### Command-Line Interface
+# Command-Line Interface
 
-# Create admin role
+### Create admin role
+```
 python bot.py --create-role Admin admin
-
-# Assign role with hierarchy override
+```
+### Assign role with hierarchy override
+```
 python bot.py --assign-role 123456789 Admin
-
-# Enable soundboard in channel
+```
+### Enable soundboard in channel
+```
 python bot.py --allow-access 987654321 soundboard
-
-# Kick user
+```
+### Kick user
+```
 python bot.py --kick 123456789
-
-# List roles
+```
+### List roles
+```
 python bot.py --list-roles
-
-### Interactive Mode
+```
+# Interactive Mode
 
 python bot.py
-> --create-role Moderator manage_messages,kick_members  
-> --allow-access general-chat write  
-> exit
-
+```
+ --create-role Moderator manage_messages,kick_members  
+```
+```
+ --allow-access general-chat write  
+```
+```
+ exit
+```
 Configuration
 -------------
 
